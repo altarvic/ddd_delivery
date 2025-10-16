@@ -74,6 +74,6 @@ func (s *StoragePlace) Clear() {
 	s.orderID = nil
 }
 
-func (s *StoragePlace) isOccupied() bool {
+func (s *StoragePlace) IsOccupied() bool {
 	return s.orderID != nil
 }
