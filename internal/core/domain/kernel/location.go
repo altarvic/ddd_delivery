@@ -30,8 +30,9 @@ func NewLocation(x int, y int) (Location, error) {
 
 func NewRandomLocation() Location {
 	return Location{
-		x: rand.Intn(maxC-minC+1) + minC,
-		y: rand.Intn(maxC-minC+1) + minC,
+		x:     rand.Intn(maxC-minC+1) + minC,
+		y:     rand.Intn(maxC-minC+1) + minC,
+		isSet: true,
 	}
 }
 
