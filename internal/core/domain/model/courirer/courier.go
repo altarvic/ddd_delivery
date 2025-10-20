@@ -42,6 +42,10 @@ func NewCourier(name string, speed int, location kernel.Location) (*Courier, err
 	}, nil
 }
 
+func (c *Courier) Equals(other *Courier) bool {
+	return other != nil && c.id == other.id
+}
+
 func (c *Courier) Id() uuid.UUID {
 	return c.id
 }
