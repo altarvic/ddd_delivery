@@ -56,7 +56,7 @@ func NewOrder(orderId uuid.UUID, location kernel.Location, volume int) (*Order, 
 }
 
 func (o *Order) Equals(other *Order) bool {
-	return o.id == other.id
+	return other != nil && o.id == other.id
 }
 
 func (o *Order) AssignCourier(courierId uuid.UUID) error {
