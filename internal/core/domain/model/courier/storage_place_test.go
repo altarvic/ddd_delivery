@@ -1,4 +1,4 @@
-package courirer
+package courier
 
 import (
 	"github.com/google/uuid"
@@ -118,4 +118,3 @@ func TestStoragePlace_Clear(t *testing.T) {
 		t.Fail()
 	}
 }
-

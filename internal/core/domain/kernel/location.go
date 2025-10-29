@@ -66,3 +66,12 @@ func (l Location) DistanceTo(target Location) (int, error) {
 
 	return abs(l.x-target.x) + abs(l.y-target.y), nil
 }
+
+// RestoreLocation should be used ONLY inside Repository
+func RestoreLocation(x int, y int) Location {
+	return Location{
+		x:     x,
+		y:     y,
+		isSet: true,
+	}
+}
