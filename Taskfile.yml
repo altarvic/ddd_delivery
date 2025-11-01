@@ -1,0 +1,63 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  DB_DELIVERY_DSN: 'postgres://username:secret@debian:5432/delivery?sslmode=disable'
+
+env:
+  CGO_ENABLED: 0
+
+tasks:
+  default:
+    cmds:
+      - 'task --list'
+    silent: true
+
+  build:
+    desc: Build the project
+    aliases: [ b ]
+    env:
+    cmds:
+      - 'go build -o ./bin/delivery  ./cmd/app/main.go'
+      - 'echo "Done!"'
+    silent: true
+
+  test:
+    desc: Run tests
+    aliases: [ t ]
+    cmds:
+      - 'go test -v ./...'
+    silent: true
+
+  migrate-create:
+    desc: Create empty migration files
+    cmds:
+      - migrate create -seq -ext=.sql -dir=./migrations create_table
+    silent: true
+
+  migrate-version:
+    desc: Display current migration version
+    cmds:
+      - 'migrate -path ./migrations -database {{.DB_DELIVERY_DSN}} version'
+    silent: true
+
+  migrate-up:
+    desc: Apply new migrations
+    cmds:
+      - 'migrate -path ./migrations -database {{.DB_DELIVERY_DSN}} up'
+    silent: true
+
+  migrate-down:
+    desc: Undo ALL migrations
+    prompt: Undo ALL migrations? Are you sure?
+    cmds:
+      - 'migrate -path ./migrations -database {{.DB_DELIVERY_DSN}} down'
+    silent: true
+
+  migrate-undo-last:
+    desc: Undo the last migration
+    prompt: Undo the last migration? Are you sure?
+    cmds:
+      - 'migrate -path ./migrations -database {{.DB_DELIVERY_DSN}} down 1'
+    silent: true

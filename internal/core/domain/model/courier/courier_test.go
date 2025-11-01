@@ -1,4 +1,4 @@
-package courirer
+package courier
 
 import (
 	"delivery/internal/core/domain/kernel"

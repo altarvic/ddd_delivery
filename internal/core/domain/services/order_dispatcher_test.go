@@ -2,7 +2,7 @@ package services
 
 import (
 	"delivery/internal/core/domain/kernel"
-	"delivery/internal/core/domain/model/courirer"
+	"delivery/internal/core/domain/model/courier"
 	"delivery/internal/core/domain/model/order"
 	"github.com/google/uuid"
 	"testing"
@@ -14,15 +14,15 @@ func TestOrderDispatcher_Dispatch(t *testing.T) {
 
 	// create 3 couriers
 	loc, _ := kernel.NewLocation(1, 1)
-	alice, _ := courirer.NewCourier("Alice", 1, loc)
+	alice, _ := courier.NewCourier("Alice", 1, loc)
 
 	loc, _ = kernel.NewLocation(7, 5)
-	bob, _ := courirer.NewCourier("Bob", 1, loc)
+	bob, _ := courier.NewCourier("Bob", 1, loc)
 
 	loc, _ = kernel.NewLocation(3, 4)
-	mallory, _ := courirer.NewCourier("Mallory", 1, loc)
+	mallory, _ := courier.NewCourier("Mallory", 1, loc)
 
-	couriers := []*courirer.Courier{alice, bob, mallory}
+	couriers := []*courier.Courier{alice, bob, mallory}
 
 	// create order that can't be taken (large volume)
 	loc, _ = kernel.NewLocation(10, 10)

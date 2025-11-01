@@ -1,14 +1,14 @@
 package services
 
 import (
-	"delivery/internal/core/domain/model/courirer"
+	"delivery/internal/core/domain/model/courier"
 	"delivery/internal/core/domain/model/order"
 	"errors"
 	"math"
 )
 
 type OrderDispatcher interface {
-	Dispatch(*order.Order, []*courirer.Courier) (*courirer.Courier, error)
+	Dispatch(*order.Order, []*courier.Courier) (*courier.Courier, error)
 }
 
 var _ OrderDispatcher = &orderDispatcher{}
@@ -20,28 +20,28 @@ func NewOrderDispatcher() OrderDispatcher {
 	return &orderDispatcher{}
 }
 
-func (od *orderDispatcher) Dispatch(o *order.Order, couriers []*courirer.Courier) (*courirer.Courier, error) {
+func (od *orderDispatcher) Dispatch(o *order.Order, couriers []*courier.Courier) (*courier.Courier, error) {
 	if o.Status() != order.StatusCreated {
 		return nil, errors.New("invalid order status")
 	}
 
 	fastestDeliveryTime := math.MaxFloat64
-	fastestCourier := (*courirer.Courier)(nil)
+	fastestCourier := (*courier.Courier)(nil)
 
-	for _, courier := range couriers {
+	for _, c := range couriers {
 
-		if ok, _ := courier.CanTakeOrder(o); !ok {
+		if ok, _ := c.CanTakeOrder(o); !ok {
 			continue
 		}
 
-		deliveryTime, err := courier.CalculateTimeToLocation(o.Location())
+		deliveryTime, err := c.CalculateTimeToLocation(o.Location())
 		if err != nil {
 			continue
 		}
 
 		if deliveryTime < fastestDeliveryTime {
 			fastestDeliveryTime = deliveryTime
-			fastestCourier = courier
+			fastestCourier = c
 		}
 	}
 

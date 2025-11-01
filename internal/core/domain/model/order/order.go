@@ -85,3 +85,14 @@ func (o *Order) Complete() error {
 	o.status = StatusCompleted
 	return nil
 }
+
+// RestoreOrder should be used ONLY inside Repository
+func RestoreOrder(id uuid.UUID, courierId *uuid.UUID, location kernel.Location, volume int, status Status) *Order {
+	return &Order{
+		id:        id,
+		courierId: courierId,
+		location:  location,
+		volume:    volume,
+		status:    status,
+	}
+}

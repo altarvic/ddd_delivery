@@ -1,11 +1,12 @@
 # syntax=docker/dockerfile:1
 
 # Build the application from source
-FROM golang:1.23.7 AS build-stage
+FROM golang:1.24.3 AS build-stage
 
 WORKDIR /build
 
 COPY go.mod go.sum ./
+
 RUN go mod download
 
 COPY . .
@@ -21,6 +22,7 @@ FROM gcr.io/distroless/base-debian11 AS build-release-stage
 
 WORKDIR /
 COPY --from=build-stage /app /app
+COPY .env .env
 
 EXPOSE 8082
 

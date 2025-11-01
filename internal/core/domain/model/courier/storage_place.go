@@ -1,4 +1,4 @@
-package courirer
+package courier
 
 import (
 	"errors"
@@ -76,4 +76,14 @@ func (s *StoragePlace) Clear() {
 
 func (s *StoragePlace) IsOccupied() bool {
 	return s.orderID != nil
+}
+
+// RestoreStoragePlace should be used ONLY inside Repository
+func RestoreStoragePlace(id uuid.UUID, name string, totalVolume int, orderID *uuid.UUID) *StoragePlace {
+	return &StoragePlace{
+		id:          id,
+		name:        name,
+		totalVolume: totalVolume,
+		orderID:     orderID,
+	}
 }

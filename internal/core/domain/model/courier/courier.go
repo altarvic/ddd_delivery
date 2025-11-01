@@ -1,4 +1,4 @@
-package courirer
+package courier
 
 import (
 	"delivery/internal/core/domain/kernel"
@@ -199,7 +199,13 @@ func roundFloat(val float64, precision uint) float64 {
 	return math.Round(val*ratio) / ratio
 }
 
-//
-// func (c *Courier) Move(target kernel.Location) error {
-//
-// }
+// RestoreCourier should be used ONLY inside Repository
+func RestoreCourier(id uuid.UUID, name string, speed int, location kernel.Location, storagePlaces []*StoragePlace) *Courier {
+	return &Courier{
+		id:            id,
+		name:          name,
+		speed:         speed,
+		location:      location,
+		storagePlaces: storagePlaces,
+	}
+}
