@@ -1,5 +1,3 @@
-// go:build test
-
 package postgres
 
 import (
@@ -230,4 +228,8 @@ func find[S []E, E any](sl S, predicate func(E) bool) (E, bool) {
 
 	var defValue E
 	return defValue, false
+}
+
+func TTT() {
+
 }

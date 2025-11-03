@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"delivery/internal/adapters/out/postgres"
+	"delivery/internal/core/application/usecases/commands"
+	"delivery/internal/core/application/usecases/queries"
 	"delivery/internal/core/domain/services"
 	"delivery/internal/core/ports"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 
 type CompositionRoot struct {
 	cfg Config
+	db  *pgxpool.Pool
 	uow ports.UnitOfWork
 
 	closers []Closer
@@ -19,30 +22,115 @@ type CompositionRoot struct {
 
 func NewCompositionRoot(cfg Config) *CompositionRoot {
 
-	dbConnStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+	db := dbConnect(cfg)
+	uow := createUnitOfWork(db)
+
+	return &CompositionRoot{
+		cfg: cfg,
+		db:  db,
+		uow: uow,
+	}
+}
+
+func dbConnect(cfg Config) *pgxpool.Pool {
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.DbUser, cfg.DbPassword, cfg.DbHost, cfg.DbPort, cfg.DbName, cfg.DbSslMode)
 
-	db, err := pgxpool.New(context.Background(), dbConnStr)
+	db, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		log.Fatal("Failed to create a database connection pool")
+		log.Fatalf("Failed to create a database connection pool: %v", err)
 	}
 
 	err = db.Ping(context.Background())
 	if err != nil {
-		log.Fatal("Failed to connect to the database")
+		log.Fatalf("Failed to connect to the database: %v", err)
 	}
 
+	return db
+}
+
+func createUnitOfWork(db *pgxpool.Pool) ports.UnitOfWork {
 	uow, err := postgres.NewUnitOfWork(db)
 	if err != nil {
-		log.Fatal("Failed to create Unit-of-Work object")
+		log.Fatalf("Failed to create UnitOfWork: %v", err)
 	}
 
-	return &CompositionRoot{
-		cfg: cfg,
-		uow: uow,
-	}
+	return uow
+}
+
+func (cr *CompositionRoot) Db() *pgxpool.Pool {
+	return cr.db
+}
+
+func (cr *CompositionRoot) UnitOfWork() ports.UnitOfWork {
+	return cr.uow
 }
 
 func (cr *CompositionRoot) NewOrderDispatcher() services.OrderDispatcher {
 	return services.NewOrderDispatcher()
 }
+
+func (cr *CompositionRoot) NewCreateCourierCommandHandler() commands.CreateCourierCommandHandler {
+	cmdHandler, err := commands.NewCreateCourierCommandHandler(cr.uow)
+	if err != nil {
+		log.Fatalf("Failed to create CreateCourierCommandHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+func (cr *CompositionRoot) NewAddStoragePlaceCommandHandler() commands.AddStoragePlaceCommandHandler {
+	cmdHandler, err := commands.NewAddStoragePlaceCommandHandler(cr.uow)
+	if err != nil {
+		log.Fatalf("Failed to create AddStoragePlaceCommandHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+func (cr *CompositionRoot) NewAssignOrderCommandHandler() commands.AssignOrderCommandHandler {
+	cmdHandler, err := commands.NewAssignOrderCommandHandler(cr.uow, cr.NewOrderDispatcher())
+	if err != nil {
+		log.Fatalf("Failed to create AssignOrderCommandHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+func (cr *CompositionRoot) NewCreateOrderCommandHandler() commands.CreateOrderCommandHandler {
+	cmdHandler, err := commands.NewCreateOrderCommandHandler(cr.uow)
+	if err != nil {
+		log.Fatalf("Failed to create CreateOrderCommandHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+func (cr *CompositionRoot) NewMoveCouriersCommandHandler() commands.MoveCouriersCommandHandler {
+	cmdHandler, err := commands.NewMoveCouriersCommandHandler(cr.uow)
+	if err != nil {
+		log.Fatalf("Failed to create MoveCouriersCommandHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+func (cr *CompositionRoot) NewAllCouriersQueryHandler() queries.AllCouriersQueryHandler {
+	cmdHandler, err := queries.NewAllCouriersQueryHandler(cr.db)
+	if err != nil {
+		log.Fatalf("Failed to create AllCouriersQueryHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+func (cr *CompositionRoot) NewIncompleteOrdersQueryHandler() queries.IncompleteOrdersQueryHandler {
+	cmdHandler, err := queries.NewIncompleteOrdersQueryHandler(cr.db)
+	if err != nil {
+		log.Fatalf("Failed to create IncompleteOrdersQueryHandler: %v", err)
+	}
+
+	return cmdHandler
+}
+
+
