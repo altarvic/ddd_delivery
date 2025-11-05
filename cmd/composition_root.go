@@ -7,8 +7,10 @@ import (
 	"delivery/internal/core/application/usecases/queries"
 	"delivery/internal/core/domain/services"
 	"delivery/internal/core/ports"
+	"delivery/internal/jobs"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/robfig/cron/v3"
 	"log"
 )
 
@@ -133,4 +135,19 @@ func (cr *CompositionRoot) NewIncompleteOrdersQueryHandler() queries.IncompleteO
 	return cmdHandler
 }
 
+func (cr *CompositionRoot) NewAssignOrdersJob() cron.Job {
+	job, err := jobs.NewAssignOrdersJob(cr.NewAssignOrderCommandHandler())
+	if err != nil {
+		log.Fatalf("cannot create AssignOrdersJob: %v", err)
+	}
 
+	return job
+}
+
+func (cr *CompositionRoot) NewMoveCouriersJob() cron.Job {
+	job, err := jobs.NewMoveCouriersJob(cr.NewMoveCouriersCommandHandler())
+	if err != nil {
+		log.Fatalf("cannot create MoveCouriersJob: %v", err)
+	}
+	return job
+}

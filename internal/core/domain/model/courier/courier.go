@@ -100,17 +100,12 @@ func (c *Courier) CanTakeOrder(o *order.Order) (bool, error) {
 
 func (c *Courier) TakeOrder(o *order.Order) error {
 	_, err := c.CanTakeOrder(o)
-
 	if err != nil {
 		return err
 	}
 
 	for _, place := range c.StoragePlaces() {
 		if !place.IsOccupied() && place.CanStore(o.Volume()) {
-			err = o.AssignCourier(c.Id())
-			if err != nil {
-				return err
-			}
 
 			err = place.Store(o.Id(), o.Volume())
 			if err != nil {
@@ -136,11 +131,6 @@ func (c *Courier) CompleteOrder(o *order.Order) error {
 
 	if place == nil {
 		return errors.New("non-owned order")
-	}
-
-	err := o.Complete()
-	if err != nil {
-		return err
 	}
 
 	place.Clear()

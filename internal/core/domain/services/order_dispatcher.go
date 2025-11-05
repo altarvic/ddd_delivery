@@ -49,7 +49,13 @@ func (od *orderDispatcher) Dispatch(o *order.Order, couriers []*courier.Courier)
 		return nil, errors.New("no matching courier")
 	}
 
-	if err := fastestCourier.TakeOrder(o); err != nil {
+	err := fastestCourier.TakeOrder(o)
+	if err != nil {
+		return nil, err
+	}
+
+	err = o.AssignCourier(fastestCourier.Id())
+	if err != nil {
 		return nil, err
 	}
 

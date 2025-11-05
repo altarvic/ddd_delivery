@@ -165,14 +165,6 @@ func TestCourier_TakeOrder(t *testing.T) {
 	if err := c.TakeOrder(o); err != nil {
 		t.Error("can take volume 5")
 	}
-
-	if o.Status() != order.StatusAssigned {
-		t.Error("order status should be assigned")
-	}
-
-	if o.CourierId() == nil || *o.CourierId() != c.Id() {
-		t.Error("order's courier id should be equal to courier's id")
-	}
 }
 
 func TestCourier_CompleteOrder(t *testing.T) {
@@ -187,10 +179,6 @@ func TestCourier_CompleteOrder(t *testing.T) {
 
 	if err := c.CompleteOrder(o); err != nil {
 		t.Error(err)
-	}
-
-	if o.Status() != order.StatusCompleted {
-		t.Error("order status must be completed")
 	}
 
 	if c.StoragePlaces()[0].IsOccupied() {
