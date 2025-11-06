@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	config := getConfigs()
+	config := getConfig()
 
 	compositionRoot := cmd.NewCompositionRoot(config)
 	defer compositionRoot.CloseAll()
@@ -19,7 +19,7 @@ func main() {
 	startWebServer(compositionRoot, config.HttpPort)
 }
 
-func getConfigs() cmd.Config {
+func getConfig() cmd.Config {
 	_ = godotenv.Load(".env")
 	// if err != nil {
 	// 	log.Fatalf("Error loading .env file")
