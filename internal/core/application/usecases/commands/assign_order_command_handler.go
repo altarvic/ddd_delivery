@@ -5,7 +5,6 @@ import (
 	"delivery/internal/core/domain/services"
 	"delivery/internal/core/ports"
 	"delivery/internal/pkg/errs"
-	"errors"
 )
 
 type AssignOrderCommandHandler interface {
@@ -44,7 +43,7 @@ func (c *assignOrderCommandHandler) Handle(ctx context.Context) error {
 		}
 
 		if couriers == nil || len(couriers) == 0 {
-			return errors.New("No free courier available")
+			return nil // No free courier available - no error here
 		}
 
 		ord, err := uowc.OrderRepository().GetFirstInCreatedStatus(ctx)
@@ -53,7 +52,7 @@ func (c *assignOrderCommandHandler) Handle(ctx context.Context) error {
 		}
 
 		if ord == nil {
-			return errors.New("No new orders available")
+			return nil // No new orders available - no error here
 		}
 
 		cour, err := c.d.Dispatch(ord, couriers)

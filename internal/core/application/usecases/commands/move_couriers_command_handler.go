@@ -4,7 +4,6 @@ import (
 	"context"
 	"delivery/internal/core/ports"
 	"delivery/internal/pkg/errs"
-	"errors"
 )
 
 type MoveCouriersCommandHandler interface {
@@ -33,11 +32,11 @@ func (c *moveCouriersCommandHandler) Handle(ctx context.Context) error {
 
 		assignedOrders, err := uowc.OrderRepository().GetAllInAssignedStatus(ctx)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		if assignedOrders == nil || len(assignedOrders) == 0 {
-			return errors.New("no assigned orders")
+			return nil // no assigned orders - no error here
 		}
 
 		for _, assignedOrder := range assignedOrders {
@@ -54,6 +53,11 @@ func (c *moveCouriersCommandHandler) Handle(ctx context.Context) error {
 
 			if assignedOrder.Location().Equals(cour.Location()) {
 				err = cour.CompleteOrder(assignedOrder)
+				if err != nil {
+					return err
+				}
+
+				err := assignedOrder.Complete()
 				if err != nil {
 					return err
 				}
