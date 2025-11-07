@@ -6,6 +6,7 @@ import (
 	"delivery/internal/pkg/errs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"sync"
 )
 
 var _ ports.UnitOfWork = &unitOfWork{}
@@ -21,8 +22,6 @@ var txKey = txKeyType{}
 
 type unitOfWorkComponents struct {
 	tx pgx.Tx
-	or ports.OrderRepository
-	cr ports.CourierRepository
 }
 
 func NewUnitOfWork(db *pgxpool.Pool) (ports.UnitOfWork, error) {
@@ -81,19 +80,17 @@ func (u *unitOfWork) getCurrentTx(ctx context.Context) pgx.Tx {
 }
 
 func (uowc *unitOfWorkComponents) OrderRepository() ports.OrderRepository {
-	if uowc.or != nil {
-		return uowc.or
-	}
-
-	uowc.or, _ = NewOrderRepository(uowc.tx)
-	return uowc.or
+	return sync.OnceValue(
+		func() ports.OrderRepository {
+			repo, _ := NewOrderRepository(uowc.tx)
+			return repo
+		})()
 }
 
 func (uowc *unitOfWorkComponents) CourierRepository() ports.CourierRepository {
-	if uowc.cr != nil {
-		return uowc.cr
-	}
-
-	uowc.cr, _ = NewCourierRepository(uowc.tx)
-	return uowc.cr
+	return sync.OnceValue(
+		func() ports.CourierRepository {
+			repo, _ := NewCourierRepository(uowc.tx)
+			return repo
+		})()
 }

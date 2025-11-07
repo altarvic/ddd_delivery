@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"delivery/internal/core/domain/kernel"
 	"delivery/internal/core/domain/model/order"
 	"delivery/internal/core/ports"
 	"delivery/internal/pkg/errs"
@@ -17,15 +16,21 @@ var _ CreateOrderCommandHandler = &createOrderCommandHandler{}
 
 type createOrderCommandHandler struct {
 	uow ports.UnitOfWork
+	geo ports.GeoClient
 }
 
-func NewCreateOrderCommandHandler(uow ports.UnitOfWork) (CreateOrderCommandHandler, error) {
+func NewCreateOrderCommandHandler(uow ports.UnitOfWork, geo ports.GeoClient) (CreateOrderCommandHandler, error) {
 	if uow == nil {
 		return nil, errs.NewValueIsRequiredError("uow")
 	}
 
+	if geo == nil {
+		return nil, errs.NewValueIsRequiredError("geo")
+	}
+
 	return &createOrderCommandHandler{
 		uow: uow,
+		geo: geo,
 	}, nil
 }
 
@@ -35,7 +40,8 @@ func (c *createOrderCommandHandler) Handle(ctx context.Context, cmd CreateOrderC
 		return errs.NewValueIsInvalidError("cmd")
 	}
 
-	return c.uow.Do(ctx, func(ctx context.Context, uowc ports.UnitOfWorkComponents) error {
+	// Убедимся что заказ c заданным id не существует
+	err := c.uow.Do(ctx, func(ctx context.Context, uowc ports.UnitOfWorkComponents) error {
 
 		ord, err := uowc.OrderRepository().Get(ctx, cmd.orderID)
 		if err != nil {
@@ -46,9 +52,23 @@ func (c *createOrderCommandHandler) Handle(ctx context.Context, cmd CreateOrderC
 			return errors.New("order already exists")
 		}
 
-		// TODO: get location from cmd.street
-		loc := kernel.NewRandomLocation()
-		ord, err = order.NewOrder(cmd.orderID, loc, cmd.volume)
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Получаем координаты из geo сервиса
+	loc, err := c.geo.GetGeolocation(ctx, cmd.street)
+	if err != nil {
+		return err
+	}
+
+	// Сохраним заказ в хранилище
+	return c.uow.Do(ctx, func(ctx context.Context, uowc ports.UnitOfWorkComponents) error {
+
+		ord, err := order.NewOrder(cmd.orderID, loc, cmd.volume)
 		if err != nil {
 			return err
 		}

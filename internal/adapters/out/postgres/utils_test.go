@@ -38,6 +38,15 @@ func setupTest(t *testing.T, seedTestData bool) (context.Context, *pgxpool.Pool,
 		return nil, nil, nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			_ = testcontainers.TerminateContainer(postgresContainer)
+		} else {
+			// cleanup after test finished
+			testcontainers.CleanupContainer(t, postgresContainer)
+		}
+	}()
+
 	// connect to DB
 	db, err := connectDb(ctx, dsn)
 	if err != nil {
@@ -50,9 +59,6 @@ func setupTest(t *testing.T, seedTestData bool) (context.Context, *pgxpool.Pool,
 		return nil, nil, nil, err
 	}
 
-	// cleanup after test finished
-	testcontainers.CleanupContainer(t, postgresContainer)
-
 	return ctx, db, uow, nil
 }
 
@@ -63,7 +69,7 @@ func startPostgresContainer(ctx context.Context, additionalScripts ...string) (t
 		scripts = append(scripts, filepath.Join(".", "testdata", s))
 	}
 
-	postgresContainer, err := postgres.Run(ctx, "postgres:16-alpine",
+	postgresContainer, err := postgres.Run(ctx, "postgres:18-alpine",
 		postgres.WithOrderedInitScripts(scripts...),
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
@@ -80,7 +86,9 @@ func startPostgresContainer(ctx context.Context, additionalScripts ...string) (t
 
 	dsn, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
+		_ = testcontainers.TerminateContainer(postgresContainer)
 		return nil, "", err
+
 	}
 
 	return postgresContainer, dsn, nil

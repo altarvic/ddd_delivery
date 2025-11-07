@@ -19,7 +19,7 @@ tasks:
     aliases: [ b ]
     env:
     cmds:
-      - 'go build -o ./bin/delivery  ./cmd/app/main.go'
+      - 'go build -o ./bin/delivery.exe  ./cmd/app/main.go'
       - 'echo "Done!"'
     silent: true
 
