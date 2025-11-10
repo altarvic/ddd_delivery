@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"delivery/internal/adapters/out/grpc/geo"
 	"delivery/internal/adapters/out/postgres"
 	"delivery/internal/core/application/usecases/commands"
 	"delivery/internal/core/application/usecases/queries"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robfig/cron/v3"
 	"log"
+	"sync"
 )
 
 type CompositionRoot struct {
@@ -100,7 +102,7 @@ func (cr *CompositionRoot) NewAssignOrderCommandHandler() commands.AssignOrderCo
 }
 
 func (cr *CompositionRoot) NewCreateOrderCommandHandler() commands.CreateOrderCommandHandler {
-	cmdHandler, err := commands.NewCreateOrderCommandHandler(cr.uow)
+	cmdHandler, err := commands.NewCreateOrderCommandHandler(cr.uow, cr.NewGeoLocationService())
 	if err != nil {
 		log.Fatalf("Failed to create CreateOrderCommandHandler: %v", err)
 	}
@@ -150,4 +152,16 @@ func (cr *CompositionRoot) NewMoveCouriersJob() cron.Job {
 		log.Fatalf("cannot create MoveCouriersJob: %v", err)
 	}
 	return job
+}
+
+func (cr *CompositionRoot) NewGeoLocationService() ports.GeoClient {
+
+	return sync.OnceValue(func() ports.GeoClient {
+		client, err := geo.NewClient(cr.cfg.GeoServiceGrpcHost)
+		if err != nil {
+			log.Fatalf("cannot create GeoClient: %v", err)
+		}
+
+		return client
+	})()
 }
