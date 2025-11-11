@@ -21,6 +21,7 @@ func main() {
 	defer cr.CloseAll()
 
 	runCronJobs(cr)
+	startKafkaConsumer(cr)
 	startWebServer(cr, config.HttpPort)
 }
 
@@ -146,4 +147,12 @@ func registerSwaggerUi(e *echo.Echo) {
 		</html>`
 		return c.HTML(http.StatusOK, html)
 	})
+}
+
+func startKafkaConsumer(cr *cmd.CompositionRoot) {
+	go func() {
+		if err := cr.NewBasketConfirmedEventsConsumer().Consume(); err != nil {
+			log.Fatalf("Kafka consumer error: %v", err)
+		}
+	}()
 }
