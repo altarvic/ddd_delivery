@@ -4,6 +4,7 @@ import (
 	"context"
 	"delivery/internal/core/domain/model/order"
 	"delivery/internal/core/ports"
+	"delivery/internal/pkg/ddd"
 	"delivery/internal/pkg/errs"
 	"errors"
 	"fmt"
@@ -14,16 +15,22 @@ import (
 var _ ports.OrderRepository = &orderRepository{}
 
 type orderRepository struct {
-	tx pgx.Tx
+	tx      pgx.Tx
+	mediatr ddd.Mediatr
 }
 
-func NewOrderRepository(tx pgx.Tx) (ports.OrderRepository, error) {
+func NewOrderRepository(tx pgx.Tx, mediatr ddd.Mediatr) (ports.OrderRepository, error) {
 	if tx == nil {
 		return nil, errs.NewValueIsRequiredError("tx")
 	}
 
+	if mediatr == nil {
+		return nil, errs.NewValueIsRequiredError("mediatr")
+	}
+
 	return &orderRepository{
-		tx: tx,
+		tx:      tx,
+		mediatr: mediatr,
 	}, nil
 }
 
@@ -45,6 +52,17 @@ func (or *orderRepository) Save(ctx context.Context, orders ...*order.Order) err
 		if err != nil {
 			return err
 		}
+
+		// publish events
+		for _, event := range o.GetDomainEvents() {
+			err = or.mediatr.Publish(ctx, event)
+			if err != nil {
+				return err
+			}
+		}
+
+		// clear events
+		o.ClearDomainEvents()
 	}
 
 	return nil

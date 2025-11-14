@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"context"
-	"delivery/internal/adapters/in/kafka"
+	kafkain "delivery/internal/adapters/in/kafka"
 	"delivery/internal/adapters/out/grpc/geo"
+	kafkaout "delivery/internal/adapters/out/kafka"
 	"delivery/internal/adapters/out/postgres"
+	"delivery/internal/core/application/eventhandlers"
 	"delivery/internal/core/application/usecases/commands"
 	"delivery/internal/core/application/usecases/queries"
 	"delivery/internal/core/domain/services"
 	"delivery/internal/core/ports"
 	"delivery/internal/jobs"
+	"delivery/internal/pkg/ddd"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robfig/cron/v3"
@@ -18,9 +21,10 @@ import (
 )
 
 type CompositionRoot struct {
-	cfg Config
-	db  *pgxpool.Pool
-	uow ports.UnitOfWork
+	cfg     Config
+	db      *pgxpool.Pool
+	uow     ports.UnitOfWork
+	mediatr ddd.Mediatr
 
 	closers []Closer
 }
@@ -28,12 +32,14 @@ type CompositionRoot struct {
 func NewCompositionRoot(cfg Config) *CompositionRoot {
 
 	db := dbConnect(cfg)
-	uow := createUnitOfWork(db)
+	mediatr := ddd.NewMediatr()
+	uow := createUnitOfWork(db, mediatr)
 
 	return &CompositionRoot{
-		cfg: cfg,
-		db:  db,
-		uow: uow,
+		cfg:     cfg,
+		db:      db,
+		uow:     uow,
+		mediatr: mediatr,
 	}
 }
 
@@ -54,8 +60,8 @@ func dbConnect(cfg Config) *pgxpool.Pool {
 	return db
 }
 
-func createUnitOfWork(db *pgxpool.Pool) ports.UnitOfWork {
-	uow, err := postgres.NewUnitOfWork(db)
+func createUnitOfWork(db *pgxpool.Pool, mediatr ddd.Mediatr) ports.UnitOfWork {
+	uow, err := postgres.NewUnitOfWork(db, mediatr)
 	if err != nil {
 		log.Fatalf("Failed to create UnitOfWork: %v", err)
 	}
@@ -69,6 +75,10 @@ func (cr *CompositionRoot) Db() *pgxpool.Pool {
 
 func (cr *CompositionRoot) UnitOfWork() ports.UnitOfWork {
 	return cr.uow
+}
+
+func (cr *CompositionRoot) Mediatr() ddd.Mediatr {
+	return cr.mediatr
 }
 
 func (cr *CompositionRoot) NewOrderDispatcher() services.OrderDispatcher {
@@ -167,16 +177,43 @@ func (cr *CompositionRoot) NewGeoLocationService() ports.GeoClient {
 	})()
 }
 
-func (cr *CompositionRoot) NewBasketConfirmedEventsConsumer() kafka.BasketConfirmedEventsConsumer {
-	consumer, err := kafka.NewBasketConfirmedEventsConsumer(
-		[]string{cr.cfg.KafkaHost},
-		cr.cfg.KafkaConsumerGroup,
-		cr.cfg.KafkaBasketConfirmedTopic,
-		cr.NewCreateOrderCommandHandler(),
-	)
+func (cr *CompositionRoot) NewBasketConfirmedEventsConsumer() kafkain.BasketConfirmedEventsConsumer {
+	return sync.OnceValue(func() kafkain.BasketConfirmedEventsConsumer {
+		consumer, err := kafkain.NewBasketConfirmedEventsConsumer(
+			[]string{cr.cfg.KafkaHost},
+			cr.cfg.KafkaConsumerGroup,
+			cr.cfg.KafkaBasketConfirmedTopic,
+			cr.NewCreateOrderCommandHandler(),
+		)
+		if err != nil {
+			log.Fatalf("failed to create BasketConfirmedEventsConsumer: %v", err)
+		}
+		cr.RegisterCloser(consumer)
+		return consumer
+	})()
+}
+
+func (cr *CompositionRoot) NewOrderChangedNotificationProducer() ports.NotificationProducer {
+	return sync.OnceValue(func() ports.NotificationProducer {
+		producer, err := kafkaout.NewOrderChangedNotificationProducer(
+			[]string{cr.cfg.KafkaHost},
+			cr.cfg.KafkaOrderChangedTopic,
+		)
+
+		if err != nil {
+			log.Fatalf("failed to create OrderChangedNotificationProducer: %v", err)
+		}
+
+		cr.RegisterCloser(producer)
+		return producer
+	})()
+}
+
+func (cr *CompositionRoot) NewOrderEventsHandler(np ports.NotificationProducer) ddd.EventHandler {
+	eventHandler, err := eventhandlers.NewOrderDomainEventsHandler(np)
 	if err != nil {
-		log.Fatalf("cannot create BasketConfirmedEventsConsumer: %v", err)
+		log.Fatalf("failed to create NotificationProducer: %v", err)
 	}
-	cr.RegisterCloser(consumer)
-	return consumer
+
+	return eventHandler
 }
