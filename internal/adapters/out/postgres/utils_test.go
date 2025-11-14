@@ -7,6 +7,7 @@ import (
 	"delivery/internal/core/domain/model/courier"
 	"delivery/internal/core/domain/model/order"
 	"delivery/internal/core/ports"
+	"delivery/internal/pkg/ddd"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -53,8 +54,11 @@ func setupTest(t *testing.T, seedTestData bool) (context.Context, *pgxpool.Pool,
 		return nil, nil, nil, err
 	}
 
+	// create Mediatr
+	mediatr := ddd.NewMediatr()
+
 	// create UOW
-	uow, err := NewUnitOfWork(db)
+	uow, err := NewUnitOfWork(db, mediatr)
 	if err != nil {
 		return nil, nil, nil, err
 	}

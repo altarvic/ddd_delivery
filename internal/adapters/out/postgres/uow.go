@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"delivery/internal/core/ports"
+	"delivery/internal/pkg/ddd"
 	"delivery/internal/pkg/errs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,7 +14,8 @@ var _ ports.UnitOfWork = &unitOfWork{}
 var _ ports.UnitOfWorkComponents = &unitOfWorkComponents{}
 
 type unitOfWork struct {
-	db *pgxpool.Pool
+	db      *pgxpool.Pool
+	mediatr ddd.Mediatr
 }
 
 type txKeyType struct{}
@@ -21,16 +23,22 @@ type txKeyType struct{}
 var txKey = txKeyType{}
 
 type unitOfWorkComponents struct {
-	tx pgx.Tx
+	tx      pgx.Tx
+	mediatr ddd.Mediatr
 }
 
-func NewUnitOfWork(db *pgxpool.Pool) (ports.UnitOfWork, error) {
+func NewUnitOfWork(db *pgxpool.Pool, mediatr ddd.Mediatr) (ports.UnitOfWork, error) {
 	if db == nil {
 		return nil, errs.NewValueIsRequiredError("db")
 	}
 
+	if mediatr == nil {
+		return nil, errs.NewValueIsRequiredError("mediatr")
+	}
+
 	uow := &unitOfWork{
-		db: db,
+		db:      db,
+		mediatr: mediatr,
 	}
 
 	return uow, nil
@@ -61,7 +69,7 @@ func (u *unitOfWork) Do(ctx context.Context, fn ports.UnitOfWorkDoFunc) error {
 		}
 	}()
 
-	err = fn(ctx, &unitOfWorkComponents{tx: tx})
+	err = fn(ctx, &unitOfWorkComponents{tx: tx, mediatr: u.mediatr})
 	if err != nil {
 		return err
 	}
@@ -82,7 +90,7 @@ func (u *unitOfWork) getCurrentTx(ctx context.Context) pgx.Tx {
 func (uowc *unitOfWorkComponents) OrderRepository() ports.OrderRepository {
 	return sync.OnceValue(
 		func() ports.OrderRepository {
-			repo, _ := NewOrderRepository(uowc.tx)
+			repo, _ := NewOrderRepository(uowc.tx, uowc.mediatr)
 			return repo
 		})()
 }

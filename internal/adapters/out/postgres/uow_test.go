@@ -7,6 +7,7 @@ import (
 	"delivery/internal/core/ports"
 	"errors"
 	"testing"
+	"unsafe"
 )
 
 func TestUnitOfWork_Do_WithCommit(t *testing.T) {
@@ -206,5 +207,40 @@ func TestUnitOfWork_Do_WithRollbackInNestedTransaction(t *testing.T) {
 
 	if count != len(couriers) {
 		t.Fatalf("couriers should be %d", len(couriers))
+	}
+}
+
+func TestUnitOfWorkComponents_RepositoriesAreSingletons(t *testing.T) {
+	ctx, _, uow, err := setupTest(t, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = uow.Do(ctx, func(ctx context.Context, uowc ports.UnitOfWorkComponents) error {
+		cr1 := uowc.CourierRepository()
+		id1 := uintptr(unsafe.Pointer(&cr1))
+
+		cr2 := uowc.CourierRepository()
+		id2 := uintptr(unsafe.Pointer(&cr2))
+
+		if id1 != id2 {
+			return errors.New("CourierRepository is not singleton")
+		}
+
+		or1 := uowc.OrderRepository()
+		id1 = uintptr(unsafe.Pointer(&or1))
+
+		or2 := uowc.OrderRepository()
+		id2 = uintptr(unsafe.Pointer(&or2))
+
+		if id1 != id2 {
+			return errors.New("OrderRepository is not singleton")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		t.Fatal(err)
 	}
 }

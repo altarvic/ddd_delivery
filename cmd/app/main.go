@@ -3,8 +3,10 @@ package main
 import (
 	"delivery/cmd"
 	httpin "delivery/internal/adapters/in/http"
+	"delivery/internal/core/domain/model/order"
 	"delivery/internal/generated/servers"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -22,6 +24,7 @@ func main() {
 
 	runCronJobs(cr)
 	startKafkaConsumer(cr)
+	subscribeToOrderChangedEvents(cr)
 	startWebServer(cr, config.HttpPort)
 }
 
@@ -155,4 +158,14 @@ func startKafkaConsumer(cr *cmd.CompositionRoot) {
 			log.Fatalf("Kafka consumer error: %v", err)
 		}
 	}()
+}
+
+func subscribeToOrderChangedEvents(cr *cmd.CompositionRoot) {
+	notificationProducer := cr.NewOrderChangedNotificationProducer()
+	orderEventsHandler := cr.NewOrderEventsHandler(notificationProducer)
+
+	e1, _ := order.NewCreatedDomainEvent(uuid.New())
+	e2, _ := order.NewCompletedDomainEvent(uuid.New(), uuid.New())
+
+	cr.Mediatr().Subscribe(orderEventsHandler, e1, e2)
 }
