@@ -59,11 +59,11 @@ func (p *orderChangedNotificationProducer) Publish(ctx context.Context, domainEv
 	case *order.CreatedDomainEvent:
 		createdEvent := domainEvent.(*order.CreatedDomainEvent)
 		integrationEvent = p.mapCreatedDomainEventToIntegrationEvent(createdEvent)
-		key = createdEvent.OrderId().String()
+		key = createdEvent.OrderId.String()
 	case *order.CompletedDomainEvent:
 		completedEvent := domainEvent.(*order.CompletedDomainEvent)
 		integrationEvent = p.mapCompletedDomainEventToIntegrationEvent(completedEvent)
-		key = completedEvent.OrderId().String()
+		key = completedEvent.OrderId.String()
 	default:
 		return errors.New("unknown order changed event type")
 	}
@@ -98,8 +98,8 @@ func (p *orderChangedNotificationProducer) mapCreatedDomainEventToIntegrationEve
 	return &orderpb.OrderCreatedIntegrationEvent{
 		EventId:    domainEvent.GetID().String(),
 		EventType:  domainEvent.GetName(),
-		OccurredAt: timestamppb.New(domainEvent.OccurredAt()),
-		OrderId:    domainEvent.OrderId().String(),
+		OccurredAt: timestamppb.New(domainEvent.OccurredAt),
+		OrderId:    domainEvent.OrderId.String(),
 	}
 }
 
@@ -107,8 +107,8 @@ func (p *orderChangedNotificationProducer) mapCompletedDomainEventToIntegrationE
 	return &orderpb.OrderCompletedIntegrationEvent{
 		EventId:    domainEvent.GetID().String(),
 		EventType:  domainEvent.GetName(),
-		OccurredAt: timestamppb.New(domainEvent.OccurredAt()),
-		OrderId:    domainEvent.OrderId().String(),
-		CourierId:  domainEvent.CourierId().String(),
+		OccurredAt: timestamppb.New(domainEvent.OccurredAt),
+		OrderId:    domainEvent.OrderId.String(),
+		CourierId:  domainEvent.CourierId.String(),
 	}
 }

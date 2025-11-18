@@ -14,8 +14,7 @@ var _ ports.UnitOfWork = &unitOfWork{}
 var _ ports.UnitOfWorkComponents = &unitOfWorkComponents{}
 
 type unitOfWork struct {
-	db      *pgxpool.Pool
-	mediatr ddd.Mediatr
+	db *pgxpool.Pool
 }
 
 type txKeyType struct{}
@@ -23,8 +22,7 @@ type txKeyType struct{}
 var txKey = txKeyType{}
 
 type unitOfWorkComponents struct {
-	tx      pgx.Tx
-	mediatr ddd.Mediatr
+	tx pgx.Tx
 }
 
 func NewUnitOfWork(db *pgxpool.Pool, mediatr ddd.Mediatr) (ports.UnitOfWork, error) {
@@ -37,8 +35,7 @@ func NewUnitOfWork(db *pgxpool.Pool, mediatr ddd.Mediatr) (ports.UnitOfWork, err
 	}
 
 	uow := &unitOfWork{
-		db:      db,
-		mediatr: mediatr,
+		db: db,
 	}
 
 	return uow, nil
@@ -69,7 +66,7 @@ func (u *unitOfWork) Do(ctx context.Context, fn ports.UnitOfWorkDoFunc) error {
 		}
 	}()
 
-	err = fn(ctx, &unitOfWorkComponents{tx: tx, mediatr: u.mediatr})
+	err = fn(ctx, &unitOfWorkComponents{tx: tx})
 	if err != nil {
 		return err
 	}
@@ -90,7 +87,7 @@ func (u *unitOfWork) getCurrentTx(ctx context.Context) pgx.Tx {
 func (uowc *unitOfWorkComponents) OrderRepository() ports.OrderRepository {
 	return sync.OnceValue(
 		func() ports.OrderRepository {
-			repo, _ := NewOrderRepository(uowc.tx, uowc.mediatr)
+			repo, _ := NewOrderRepository(uowc.tx)
 			return repo
 		})()
 }

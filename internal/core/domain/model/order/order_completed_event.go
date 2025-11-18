@@ -5,15 +5,20 @@ import (
 	"delivery/internal/pkg/errs"
 	"github.com/google/uuid"
 	"reflect"
+	"time"
 )
 
 var _ ddd.DomainEvent = &CompletedDomainEvent{}
 
 type CompletedDomainEvent struct {
-	baseOrderDomainEvent
+	Id         uuid.UUID
+	Name       string
+	OccurredAt time.Time
 
-	courierId uuid.UUID
-	isValid   bool
+	OrderId   uuid.UUID
+	CourierId uuid.UUID
+
+	isValid bool
 }
 
 func NewCompletedDomainEvent(orderId uuid.UUID, courierId uuid.UUID) (ddd.DomainEvent, error) {
@@ -27,17 +32,24 @@ func NewCompletedDomainEvent(orderId uuid.UUID, courierId uuid.UUID) (ddd.Domain
 		return event, errs.NewValueIsRequiredError("courierId")
 	}
 
-	event.baseOrderDomainEvent = newBaseOrderDomainEvent(reflect.TypeOf(event).Elem().Name(), orderId)
-	event.courierId = courierId
+	event.Id = uuid.New()
+	event.Name = reflect.TypeOf(event).Elem().Name()
+	event.OccurredAt = time.Now().UTC()
+	event.OrderId = orderId
+	event.CourierId = courierId
 	event.isValid = true
 
 	return event, nil
 }
 
-func (o *CompletedDomainEvent) CourierId() uuid.UUID {
-	return o.courierId
+func (e *CompletedDomainEvent) GetID() uuid.UUID {
+	return e.Id
 }
 
-func (o *CompletedDomainEvent) IsValid() bool {
-	return o.isValid
+func (e *CompletedDomainEvent) GetName() string {
+	return e.Name
+}
+
+func (e *CompletedDomainEvent) IsValid() bool {
+	return e.isValid
 }

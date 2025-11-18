@@ -5,12 +5,17 @@ import (
 	"delivery/internal/pkg/errs"
 	"github.com/google/uuid"
 	"reflect"
+	"time"
 )
 
 var _ ddd.DomainEvent = &CreatedDomainEvent{}
 
 type CreatedDomainEvent struct {
-	baseOrderDomainEvent
+	Id         uuid.UUID
+	Name       string
+	OccurredAt time.Time
+
+	OrderId uuid.UUID
 
 	isValid bool
 }
@@ -21,12 +26,23 @@ func NewCreatedDomainEvent(orderId uuid.UUID) (ddd.DomainEvent, error) {
 		return event, errs.NewValueIsRequiredError("orderId")
 	}
 
-	event.baseOrderDomainEvent = newBaseOrderDomainEvent(reflect.TypeOf(event).Elem().Name(), orderId)
+	event.Id = uuid.New()
+	event.Name = reflect.TypeOf(event).Elem().Name()
+	event.OccurredAt = time.Now().UTC()
+	event.OrderId = orderId
 	event.isValid = true
 
 	return event, nil
 }
 
-func (o *CreatedDomainEvent) IsValid() bool {
-	return o.isValid
+func (e *CreatedDomainEvent) GetID() uuid.UUID {
+	return e.Id
+}
+
+func (e *CreatedDomainEvent) GetName() string {
+	return e.Name
+}
+
+func (e *CreatedDomainEvent) IsValid() bool {
+	return e.isValid
 }
