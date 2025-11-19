@@ -65,6 +65,11 @@ func runCronJobs(cr *cmd.CompositionRoot) {
 		log.Fatalf("ошибка при добавлении задачи: %v", err)
 	}
 
+	_, err = c.AddJob("@every 5s", cr.NewOutboxJob())
+	if err != nil {
+		log.Fatalf("ошибка при добавлении задачи: %v", err)
+	}
+
 	c.Start()
 }
 

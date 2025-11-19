@@ -5,26 +5,31 @@ import (
 	kafkain "delivery/internal/adapters/in/kafka"
 	"delivery/internal/adapters/out/grpc/geo"
 	kafkaout "delivery/internal/adapters/out/kafka"
+	outb "delivery/internal/adapters/out/outbox"
 	"delivery/internal/adapters/out/postgres"
 	"delivery/internal/core/application/eventhandlers"
 	"delivery/internal/core/application/usecases/commands"
 	"delivery/internal/core/application/usecases/queries"
+	"delivery/internal/core/domain/model/order"
 	"delivery/internal/core/domain/services"
 	"delivery/internal/core/ports"
 	"delivery/internal/jobs"
 	"delivery/internal/pkg/ddd"
+	"delivery/internal/pkg/outbox"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robfig/cron/v3"
 	"log"
+	"reflect"
 	"sync"
 )
 
 type CompositionRoot struct {
-	cfg     Config
-	db      *pgxpool.Pool
-	uow     ports.UnitOfWork
-	mediatr ddd.Mediatr
+	cfg           Config
+	db            *pgxpool.Pool
+	uow           ports.UnitOfWork
+	mediatr       ddd.Mediatr
+	eventRegistry outbox.EventRegistry
 
 	closers []Closer
 }
@@ -34,12 +39,14 @@ func NewCompositionRoot(cfg Config) *CompositionRoot {
 	db := dbConnect(cfg)
 	mediatr := ddd.NewMediatr()
 	uow := createUnitOfWork(db, mediatr)
+	eventRegistry := createEventRegistry()
 
 	return &CompositionRoot{
-		cfg:     cfg,
-		db:      db,
-		uow:     uow,
-		mediatr: mediatr,
+		cfg:           cfg,
+		db:            db,
+		uow:           uow,
+		mediatr:       mediatr,
+		eventRegistry: eventRegistry,
 	}
 }
 
@@ -67,6 +74,22 @@ func createUnitOfWork(db *pgxpool.Pool, mediatr ddd.Mediatr) ports.UnitOfWork {
 	}
 
 	return uow
+}
+
+func createEventRegistry() outbox.EventRegistry {
+	registry, err := outbox.NewEventRegistry()
+	if err != nil {
+		log.Fatalf("cannot create EventRegistry: %v", err)
+	}
+
+	err = registry.RegisterDomainEvent(reflect.TypeOf(order.CreatedDomainEvent{}))
+	err = registry.RegisterDomainEvent(reflect.TypeOf(order.CompletedDomainEvent{}))
+
+	if err != nil {
+		log.Fatalf("cannot register domain event: %v", err)
+	}
+
+	return registry
 }
 
 func (cr *CompositionRoot) Db() *pgxpool.Pool {
@@ -216,4 +239,21 @@ func (cr *CompositionRoot) NewOrderEventsHandler(np ports.NotificationProducer) 
 	}
 
 	return eventHandler
+}
+
+func (cr *CompositionRoot) NewOutboxRepository() outb.OutboxRepository {
+	ob, err := outb.NewRepository(cr.db)
+	if err != nil {
+		log.Fatalf("failed to create OutboxRepository: %v", err)
+	}
+
+	return ob
+}
+
+func (cr *CompositionRoot) NewOutboxJob() cron.Job {
+	job, err := jobs.NewOutboxJob(cr.NewOutboxRepository(), cr.mediatr, cr.eventRegistry)
+	if err != nil {
+		log.Fatalf("cannot create OutboxJob: %v", err)
+	}
+	return job
 }

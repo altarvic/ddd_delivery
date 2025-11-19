@@ -4,8 +4,8 @@ import (
 	"context"
 	"delivery/internal/core/domain/model/order"
 	"delivery/internal/core/ports"
-	"delivery/internal/pkg/ddd"
 	"delivery/internal/pkg/errs"
+	"delivery/internal/pkg/outbox"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -15,22 +15,16 @@ import (
 var _ ports.OrderRepository = &orderRepository{}
 
 type orderRepository struct {
-	tx      pgx.Tx
-	mediatr ddd.Mediatr
+	tx pgx.Tx
 }
 
-func NewOrderRepository(tx pgx.Tx, mediatr ddd.Mediatr) (ports.OrderRepository, error) {
+func NewOrderRepository(tx pgx.Tx) (ports.OrderRepository, error) {
 	if tx == nil {
 		return nil, errs.NewValueIsRequiredError("tx")
 	}
 
-	if mediatr == nil {
-		return nil, errs.NewValueIsRequiredError("mediatr")
-	}
-
 	return &orderRepository{
-		tx:      tx,
-		mediatr: mediatr,
+		tx: tx,
 	}, nil
 }
 
@@ -38,24 +32,36 @@ func (or *orderRepository) Save(ctx context.Context, orders ...*order.Order) err
 
 	query := `insert into orders (id, courier_id, location_x, location_y, volume, status)
 			  values ($1, $2, $3, $4, $5, $6)
-			 	  on conflict (id)
-					 do update set courier_id = EXCLUDED.courier_id,
-								   location_x = EXCLUDED.location_x,
-								   location_y = EXCLUDED.location_y,
-								   volume     = EXCLUDED.volume,
-								   status     = EXCLUDED.status;`
+			  on conflict (id)
+				 do update set courier_id = EXCLUDED.courier_id,
+							   location_x = EXCLUDED.location_x,
+							   location_y = EXCLUDED.location_y,
+							   volume     = EXCLUDED.volume,
+							   status     = EXCLUDED.status;`
+
+	outboxQuery := `insert into outbox(id, type, content, occurred)
+                    values ($1, $2, $3, $4)
+                    on conflict (id) do nothing;`
 
 	for _, o := range orders {
-		_, err := or.tx.Exec(ctx, query, o.Id(), o.CourierId(),
-			o.Location().X(), o.Location().Y(), o.Volume(), o.Status())
+
+		// save aggregate
+		_, err := or.tx.Exec(ctx, query, o.Id(), o.CourierId(), o.Location().X(), o.Location().Y(),
+			o.Volume(), o.Status())
 
 		if err != nil {
 			return err
 		}
 
-		// publish events
+		// save events (outbox pattern)
 		for _, event := range o.GetDomainEvents() {
-			err = or.mediatr.Publish(ctx, event)
+
+			msg, err := outbox.EncodeDomainEvent(event)
+			if err != nil {
+				return err
+			}
+
+			_, err = or.tx.Exec(ctx, outboxQuery, msg.ID, msg.Name, msg.Payload, msg.OccurredAtUtc)
 			if err != nil {
 				return err
 			}
